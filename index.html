@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tetris – Hard Mode</title>
+  <style>
+    html,body{height:100%;margin:0;background:#111;display:flex;justify-content:center;align-items:center;font-family:Arial,Helvetica,sans-serif}
+    #wrap{position:relative}
+    #board{background:#000;box-shadow:0 0 12px #0f0}
+    #ui{position:absolute;top:8px;left:100%;margin-left:20px;color:#eee}
+    #ui h1{margin:0 0 12px;font-size:20px;color:#0f0}
+    #ui p{margin:6px 0}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="board" width="240" height="480"></canvas>
+    <div id="ui">
+      <h1>Hard Tetris</h1>
+      <p>점수 <span id="score">0</span></p>
+      <p>라인 <span id="lines">0</span></p>
+      <p style="font-size:12px">← → 이동<br>↓ 소프트드롭<br>Q/W 회전</p>
+    </div>
+  </div>
+
+<script>
+const COLS=10,ROWS=20,SIZE=24;
+const COLORS=[
+  '#000',        //0 empty
+  '#f0f','#0ff','#ff0','#0f0','#f60','#06f','#f00', //1-7 테트로미노
+  '#9c0','#c06','#09f','#f90','#999'               //8-12 펜토미노
+];
+const SHAPES=[
+  [[]],                                             //0
+  [[1,1],[1,1]],                                    //O
+  [[1,1,1,1]],                                      //I
+  [[0,1,1],[1,1,0]],                                //S
+  [[1,1,0],[0,1,1]],                                //Z
+  [[1,0,0],[1,1,1]],                                //L
+  [[0,0,1],[1,1,1]],                                //J
+  [[0,1,0],[1,1,1]],                                //T
+  //––– 펜토미노 5종 –––
+  [[0,1,0],[1,1,1],[0,1,0]],                        //X
+  [[1,1],[1,1],[1,0]],                              //P
+  [[1,0,1],[1,1,1]],                                //U
+  [[1,0,0],[1,0,0],[1,1,1]],                        //V
+  [[1,0,0],[1,1,0],[0,1,1]]                         //W
+];
+
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+ctx.scale(SIZE,SIZE);
+
+let arena=createMatrix(COLS,ROWS);
+let player;
+let dropInterval=700;
+let dropCounter=0;
+let last=0;
+let score=0,lines=0;
+
+function createMatrix(w,h){return Array.from({length:h},()=>Array(w).fill(0));}
+function collide(arena,p){
+  return p.shape.some((row,y)=>row.some((v,x)=>v&&(arena[y+p.y]?.[x+p.x]??1)));}
+function merge(arena,p){p.shape.forEach((row,y)=>row.forEach((v,x)=>{if(v)arena[y+p.y][x+p.x]=p.type;}));}
+function rotate(m){return m[0].map((_,x)=>m.map(r=>r[x]).reverse());}
+function playerRotate(dir){const old=player.shape;for(let i=0;i<Math.abs(dir);i++){player.shape=rotate(player.shape);}if(dir<0)player.shape=rotate(player.shape).reverse();if(collide(arena,player))player.shape=old;}
+function sweep(){outer:for(let y=arena.length-1;y>=0;y--){for(let x=0;x<COLS;x++){if(arena[y][x]==0)continue outer;}const row=arena.splice(y,1)[0].fill(0);arena.unshift(row);++y;score+=10;lines++;if(lines%10==0&&dropInterval>200)dropInterval-=50;}}
+function drawMatrix(mat,offset){mat.forEach((row,y)=>row.forEach((v,x)=>{if(!v)return;ctx.fillStyle=COLORS[v];ctx.fillRect(x+offset.x,y+offset.y,1,1);}));}
+function draw(){ctx.fillStyle='#000';ctx.fillRect(0,0,COLS,ROWS);drawMatrix(arena,{x:0,y:0});drawMatrix(player.shape,player);} 
+function update(t=0){const dt=t-last;last=t;dropCounter+=dt;if(dropCounter>dropInterval){playerDrop();}draw();requestAnimationFrame(update);} 
+function playerDrop(){player.y++;if(collide(arena,player)){player.y--;merge(arena,player);sweep();updateScore();playerReset();}dropCounter=0;}
+function playerMove(dir){player.x+=dir;if(collide(arena,player))player.x-=dir;}
+function createPiece(){const type=(1+Math.random()*(SHAPES.length-1))|0;const shape=SHAPES[type].map(r=>r.slice());return{shape,type,x:(COLS-shape[0].length>>1),y:0};}
+function playerReset(){player=createPiece();if(collide(arena,player)){arena.forEach(r=>r.fill(0));score=0;lines=0;dropInterval=700;updateScore();}}
+function updateScore(){document.getElementById('score').textContent=score;document.getElementById('lines').textContent=lines;}
+
+//input
+document.addEventListener('keydown',e=>{switch(e.key){case'ArrowLeft':playerMove(-1);break;case'ArrowRight':playerMove(1);break;case'ArrowDown':playerDrop();break;case'q':playerRotate(1);break;case'w':playerRotate(-1);break;}});
+
+playerReset();updateScore();requestAnimationFrame(update);
+</script>
+</body>
+</html>
